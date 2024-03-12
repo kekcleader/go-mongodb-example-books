@@ -17,18 +17,12 @@ type Book struct {
 	Year   int    `bson:"year"`
 }
 
-var (
-	ctx             context.Context
-	booksCollection *mongo.Collection
-)
-
 func main() {
-	// Установка контекста для подключения
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Подключение к MongoDB
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
+	// Замените "your_username:your_password" на ваши фактические учетные данные
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://your_username:your_password@localhost:27017/library"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -38,40 +32,32 @@ func main() {
 		}
 	}()
 
-	// Получение коллекции
-	booksCollection = client.Database("library").Collection("books")
-
 	fmt.Println("Connected to MongoDB!")
 
-	// Добавление книг
-	AddBook(Book{"The Hobbit", "J.R.R. Tolkien", 1937})
-	AddBook(Book{"1984", "George Orwell", 1949})
+	booksCollection := client.Database("library").Collection("books")
 
-	// Получение и вывод всех книг
-	GetAllBooks()
+	AddBook(ctx, booksCollection, Book{"The Hobbit", "J.R.R. Tolkien", 1937})
+	AddBook(ctx, booksCollection, Book{"1984", "George Orwell", 1949})
 
-	// Обновление книги
-	UpdateBook("The Hobbit", Book{"The Hobbit", "J.R.R. Tolkien", 1951})
+	GetAllBooks(ctx, booksCollection)
 
-	// Удаление книги
-	DeleteBook("1984")
+	UpdateBook(ctx, booksCollection, "The Hobbit", Book{"The Hobbit", "J.R.R. Tolkien", 1951})
 
-	// Повторное получение и вывод всех книг
-	GetAllBooks()
+	DeleteBook(ctx, booksCollection, "1984")
+
+	GetAllBooks(ctx, booksCollection)
 }
 
-// Добавление книги
-func AddBook(book Book) {
-	_, err := booksCollection.InsertOne(ctx, book)
+func AddBook(ctx context.Context, collection *mongo.Collection, book Book) {
+	_, err := collection.InsertOne(ctx, book)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("Added a new book: ", book.Title)
 }
 
-// Получение списка всех книг
-func GetAllBooks() {
-	cursor, err := booksCollection.Find(ctx, bson.D{{}})
+func GetAllBooks(ctx context.Context, collection *mongo.Collection) {
+	cursor, err := collection.Find(ctx, bson.D{{}})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -85,20 +71,18 @@ func GetAllBooks() {
 	}
 }
 
-// Обновление книги
-func UpdateBook(title string, updatedBook Book) {
+func UpdateBook(ctx context.Context, collection *mongo.Collection, title string, updatedBook Book) {
 	filter := bson.D{{"title", title}}
 	update := bson.D{{"$set", bson.D{{"author", updatedBook.Author}, {"year", updatedBook.Year}}}}
-	_, err := booksCollection.UpdateOne(ctx, filter, update)
+	_, err := collection.UpdateOne(ctx, filter, update)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("Book updated: ", title)
 }
 
-// Удаление книги
-func DeleteBook(title string) {
-	_, err := booksCollection.DeleteOne(ctx, bson.D{{"title", title}})
+func DeleteBook(ctx context.Context, collection *mongo.Collection, title string) {
+	_, err := collection.DeleteOne(ctx, bson.D{{"title", title}})
 	if err != nil {
 		log.Fatal(err)
 	}
